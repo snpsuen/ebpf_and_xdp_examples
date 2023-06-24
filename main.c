@@ -16,8 +16,6 @@ int handle_event(void *ctx, void *data, size_t len)  {
         printf("Event Received:\n");
         printf("\t newname: %s\n", event->newpath);
         printf("\t oldname: %s\n", event->oldpath);
-        printf("\t PID: %d\n", event->pid);
-        printf("\t UID: %d\n", event->uid);
     }
 
     
