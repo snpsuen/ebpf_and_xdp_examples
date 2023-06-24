@@ -31,6 +31,7 @@ int handle_event(void *ctx, void *data, size_t len)  {
     struct in_addr ip_addr;
     ip_addr.s_addr = htonl(msg->dst); // Convert to network byte order
     printf("%s\n", inet_ntoa(ip_addr));
+    printf("debug: %d\n", msg->dbg);
 
     printf("got ping?\n");
     return 0;
@@ -77,7 +78,7 @@ int main() {
     // Poll the ring buffer
     while (1)
     {
-        if (ring_buffer__poll(rb, 100 /* timeout, ms */) < 0)
+        if (ring_buffer__poll(rb, 10 /* timeout, ms */) < 0)
         {
             fprintf(stderr, "Error polling ring buffer\n");
             break;

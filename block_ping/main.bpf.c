@@ -9,6 +9,11 @@
 
 #define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
 #define htons(x) ((((x) & 0x00ff) << 8) | (((x) & 0xff00) >> 8))
+#define htonl(x) (((uint32_t) ((((x) & 0x000000ff) << 24) | \
+                                 (((x) & 0x0000ff00) << 8)  | \
+                                 (((x) & 0x00ff0000) >> 8)  | \
+                                 (((x) & 0xff000000) >> 24))))
+
 
 
 struct {
@@ -28,9 +33,7 @@ int detect_ping(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct data_t msg = { 0 };
-    int ret;
-
-    return XDP_DROP;
+    int ret = XDP_PASS;
 
     struct ethhdr *eth = (struct ethhdr *)data;
     struct iphdr *ip = (struct iphdr *)((char *)data + sizeof(*eth));
@@ -49,11 +52,21 @@ int detect_ping(struct xdp_md *ctx) {
     }
 
     
-    msg.dst = ip->daddr; // Extracting the destination IP
+    
     //bpf_probe_read(&msg.dst, sizeof(msg.dst), &ip->daddr);
 
+    msg.dst = ip->daddr; // Extracting the destination IP
+
+    if (ip->daddr == htonl(0x08080808) && ip->protocol == 1) {
+        ret = XDP_DROP;
+    }
+
+    if (ip->saddr == htonl(0x08080808) && ip->protocol == 1) {
+        ret = XDP_DROP;
+    }
 
     xdp_out:
+    msg.dbg = 1;
     bpf_ringbuf_output(&ringbuf, &msg, sizeof(msg), BPF_RB_FORCE_WAKEUP);
     return ret;
 }
