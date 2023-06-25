@@ -20,17 +20,12 @@ int probe_renameat2(struct pt_regs *ctx)
 
     struct filename *from = (struct filename *)PT_REGS_PARM2(ctx);
     struct filename *to = (struct filename *)PT_REGS_PARM4(ctx);
-    const char *old_name = &data.oldpath[0];
-    const char *new_name = &data.newpath[0];
-    
-    bpf_probe_read(&old_name, sizeof(data.oldpath), &from->name);
-    int ret_old = bpf_probe_read(&data.oldpath, sizeof(data.oldpath), old_name);
 
-    bpf_probe_read(&new_name, sizeof(data.newpath), &to->name);
-    int ret_new = bpf_probe_read(&data.newpath, sizeof(data.newpath), new_name);
-    
+
+    bpf_probe_read(&data.oldpath, sizeof(data.oldpath), BPF_CORE_READ(from, name));
+    bpf_probe_read(&data.newpath, sizeof(data.newpath), BPF_CORE_READ(to, name));
+
     bpf_ringbuf_output(&ringbuf, &data, sizeof(data), BPF_RB_FORCE_WAKEUP);
-
 
     return 0;
 }

@@ -25,7 +25,7 @@ struct {
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1024);
+    __uint(max_entries, 1 << 24);
 } ringbuf SEC(".maps");
 
 SEC("xdp")
@@ -55,19 +55,14 @@ int detect_ping(struct xdp_md *ctx) {
     
     //bpf_probe_read(&msg.dst, sizeof(msg.dst), &ip->daddr);
 
-    msg.dst = ip->daddr; // Extracting the destination IP
+    
 
-    if (ip->daddr == htonl(0x08080808) && ip->protocol == 1) {
-        ret = XDP_DROP;
-    }
-
-    if (ip->saddr == htonl(0x08080808) && ip->protocol == 1) {
-        ret = XDP_DROP;
+    if (ip->protocol == 1) {
+        msg.dbg = 1;
+        bpf_ringbuf_output(&ringbuf, &msg, sizeof(msg), BPF_RB_FORCE_WAKEUP);
     }
 
     xdp_out:
-    msg.dbg = 1;
-    bpf_ringbuf_output(&ringbuf, &msg, sizeof(msg), BPF_RB_FORCE_WAKEUP);
     return ret;
 }
 

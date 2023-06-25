@@ -61,13 +61,13 @@ int main() {
         return 1;
     }
 
-    struct bpf_map *map = bpf_object__find_map_by_name(skel->obj, "ringbuf");
+    struct bpf_map *map = bpf_object__find_map_by_name(skel->obj, "ping_map");
     if (!map) {
         fprintf(stderr, "Failed to get ring buffer map\n");
         return 1;
     }
 
-    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(map), handle_event, NULL, NULL);
+    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.ringbuf), handle_event, handle_event, NULL);
     if (!rb) {
         fprintf(stderr, "Failed to create ring buffer\n");
         return 1;
