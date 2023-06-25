@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 
 
+
 #include "main.h"
 #include "main.skel.h"
 
@@ -27,12 +28,6 @@ static int libbpf_print(enum libbpf_print_level level, const char *format, va_li
 
 
 int handle_event(void *ctx, void *data, size_t len)  {
-    struct data_t *msg = (struct data_t *)data;
-    struct in_addr ip_addr;
-    ip_addr.s_addr = htonl(msg->dst); // Convert to network byte order
-    printf("%s\n", inet_ntoa(ip_addr));
-    printf("debug: %d\n", msg->dbg);
-
     printf("got ping?\n");
     return 0;
 }
@@ -61,13 +56,13 @@ int main() {
         return 1;
     }
 
-    struct bpf_map *map = bpf_object__find_map_by_name(skel->obj, "ping_map");
+    struct bpf_map *map = bpf_object__find_map_by_name(skel->obj, "ringbuf");
     if (!map) {
         fprintf(stderr, "Failed to get ring buffer map\n");
         return 1;
     }
 
-    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.ringbuf), handle_event, handle_event, NULL);
+    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(map), handle_event, NULL, NULL);
     if (!rb) {
         fprintf(stderr, "Failed to create ring buffer\n");
         return 1;
@@ -75,10 +70,56 @@ int main() {
 
     printf("Successfully started! Please Ctrl+C to stop.\n");
 
+
+    struct bpf_map *map_hash = bpf_object__find_map_by_name(skel->obj, "ping_hash");
+    if (!map_hash) {
+        fprintf(stderr, "!map_hash\n");
+        return 1;
+    }
+
+    uint32_t ip = htonl(0x08080808);
+    uint32_t ip2 = 134744072;
+    uint32_t ip3 = 0x08080808;
+    uint32_t ip4 = 167880896;
+
+
+    const char* ip_host_str = "8.8.8.8";
+    uint32_t ip_host;
+    inet_pton(AF_INET, ip_host_str, &ip_host);
+
+    const char* ip_server_str = "192.168.1.10";
+    uint32_t ip_server;
+    inet_pton(AF_INET, ip_server_str, &ip_server);
+
+    printf("ip_server: %d\n", ip_server);
+    printf("ip_host: %d\n", ip_host);
+
+    err = bpf_map__update_elem(map_hash, &ip_host, sizeof(uint32_t), &ip_host, sizeof(uint32_t), BPF_ANY);
+    if (err) {
+        fprintf(stderr, "failed to update element in ping_hash\n");
+        return 1;
+    }
+
+    err = bpf_map__update_elem(map_hash, &ip_server, sizeof(uint32_t), &ip_server, sizeof(uint32_t), BPF_ANY);
+    if (err) {
+        fprintf(stderr, "failed to update element in ping_hash\n");
+        return 1;
+    }
+    
+    int val = 0;
+    if (!bpf_map_lookup_elem(bpf_map__fd(map_hash), &ip, &val)){
+        printf("found element: %d\n", val);
+    } else {
+        printf("no found element!!\n");
+    }
+    
+
+
+
     // Poll the ring buffer
     while (1)
     {
-        if (ring_buffer__poll(rb, 10 /* timeout, ms */) < 0)
+        if (ring_buffer__poll(rb, 1000 /* timeout, ms */) < 0)
         {
             fprintf(stderr, "Error polling ring buffer\n");
             break;

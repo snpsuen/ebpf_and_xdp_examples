@@ -19,20 +19,20 @@
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
-    __type(key, u32);
-    __type(value, u32);
-} ping_map SEC(".maps");
+    __type(key, uint32_t);
+    __type(value, uint32_t);
+} ping_hash SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 24);
+    __uint(max_entries, 256 * 1024);
 } ringbuf SEC(".maps");
 
 SEC("xdp")
 int detect_ping(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
-    struct data_t msg = { 0 };
+    struct data_t *msg = NULL;
     int ret = XDP_PASS;
 
     struct ethhdr *eth = (struct ethhdr *)data;
@@ -41,28 +41,28 @@ int detect_ping(struct xdp_md *ctx) {
 
     
     if (data + sizeof(*eth) + sizeof(*ip) + sizeof(*icmp) > data_end) {
-        ret =  XDP_PASS;
-        goto xdp_out;
+        return  XDP_PASS;
+
     }
 
     
     if (eth->h_proto != htons(ETH_P_IP)) {
-        ret = XDP_PASS;  // not an IPv4 packet
-        goto xdp_out;
+        return XDP_PASS;
     }
 
-    
-    
-    //bpf_probe_read(&msg.dst, sizeof(msg.dst), &ip->daddr);
-
-    
 
     if (ip->protocol == 1) {
-        msg.dbg = 1;
-        bpf_ringbuf_output(&ringbuf, &msg, sizeof(msg), BPF_RB_FORCE_WAKEUP);
+        bpf_printk("----------");
+        bpf_printk("Hello ping");
+
+        if (bpf_map_lookup_elem(&ping_hash, &ip->daddr) || bpf_map_lookup_elem(&ping_hash, &ip->saddr)) {
+            bpf_printk("found element in hash %d", ip->daddr);
+            return XDP_DROP;
+        } 
+        bpf_printk("not found element in hash %d", ip->daddr);
+        bpf_printk("not found element in hash %d", ip->saddr);
     }
 
-    xdp_out:
     return ret;
 }
 
