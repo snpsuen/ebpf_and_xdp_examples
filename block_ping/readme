@@ -1,0 +1,14 @@
+root@3900x:~# bpftool map show | grep ping_hash
+22: hash  name ping_hash  flags 0x0
+28: hash  name ping_hash  flags 0x0
+root@3900x:~# bpftool map dump id 22
+[]
+root@3900x:~# bpftool map dump id 28
+[{
+        "key": 134744072,
+        "value": 134744072
+    },{
+        "key": 167880896,
+        "value": 167880896
+    }
+]
