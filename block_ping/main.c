@@ -5,7 +5,12 @@
 #include <linux/perf_event.h>
 #include <linux/bpf.h>
 #include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include <arpa/inet.h>
+#include <linux/if_link.h>
+#include <net/if.h>
+
+
 
 
 
@@ -33,8 +38,14 @@ int handle_event(void *ctx, void *data, size_t len)  {
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
     int err;
+
+    if (argc != 2) {
+       printf("Provide interface name\n"); 
+    }
+
+
 
     // Set up signal handler to exit
     signal(SIGINT, handle_sigint);
@@ -49,12 +60,15 @@ int main() {
         return 1;
     }
 
-    // Attach kprobe
-    err = main_bpf__attach(skel);
-    if (err) {
-        fprintf(stderr, "Failed to attach BPF skeleton\n");
+
+    /* Attach BPF to network interface */
+    unsigned int ifindex = if_nametoindex(argv[1]);
+    struct bpf_link *link = bpf_program__attach_xdp(skel->progs.detect_ping, ifindex);
+    if (!link) {
+        fprintf(stderr, "bpf_program__attach_xdp\n");
         return 1;
     }
+
 
     struct bpf_map *map = bpf_object__find_map_by_name(skel->obj, "ringbuf");
     if (!map) {
@@ -83,35 +97,31 @@ int main() {
     uint32_t ip4 = 167880896;
 
 
-    const char* ip_host_str = "8.8.8.8";
+    const char* ip_host_str = "192.168.1.10";
     uint32_t ip_host;
     inet_pton(AF_INET, ip_host_str, &ip_host);
 
-    const char* ip_server_str = "192.168.1.10";
+    const char* ip_server_str = "8.8.8.8";
     uint32_t ip_server;
     inet_pton(AF_INET, ip_server_str, &ip_server);
 
     printf("ip_server: %d\n", ip_server);
     printf("ip_host: %d\n", ip_host);
 
+    /*
     err = bpf_map__update_elem(map_hash, &ip_host, sizeof(uint32_t), &ip_host, sizeof(uint32_t), BPF_ANY);
     if (err) {
         fprintf(stderr, "failed to update element in ping_hash\n");
         return 1;
     }
-
+    */
     err = bpf_map__update_elem(map_hash, &ip_server, sizeof(uint32_t), &ip_server, sizeof(uint32_t), BPF_ANY);
     if (err) {
         fprintf(stderr, "failed to update element in ping_hash\n");
         return 1;
     }
     
-    int val = 0;
-    if (!bpf_map_lookup_elem(bpf_map__fd(map_hash), &ip, &val)){
-        printf("found element: %d\n", val);
-    } else {
-        printf("no found element!!\n");
-    }
+    
     
 
 
