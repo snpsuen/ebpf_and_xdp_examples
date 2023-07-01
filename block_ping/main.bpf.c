@@ -1,19 +1,12 @@
-
-
-#include "vmlinux.h"
-#include "main.h"
+#include <stdint.h>
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/icmp.h>
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
+#include <arpa/inet.h>
 
-
-#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
-#define htons(x) ((((x) & 0x00ff) << 8) | (((x) & 0xff00) >> 8))
-#define htonl(x) (((uint32_t) ((((x) & 0x000000ff) << 24) | \
-                                 (((x) & 0x0000ff00) << 8)  | \
-                                 (((x) & 0x00ff0000) >> 8)  | \
-                                 (((x) & 0xff000000) >> 24))))
-
+#include "main.h"
 
 
 struct {
@@ -32,7 +25,7 @@ SEC("xdp")
 int detect_ping(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
-    struct data_t *msg = NULL;
+    struct data_t msg = {0};
     int ret = XDP_PASS;
 
     struct ethhdr *eth = (struct ethhdr *)data;
@@ -52,15 +45,16 @@ int detect_ping(struct xdp_md *ctx) {
 
 
     if (ip->protocol == 1) {
-        bpf_printk("----------");
-        bpf_printk("Hello ping");
+        msg.proto = 1;
+        msg.saddr = ip->saddr;
+        msg.daddr = ip->daddr;
+
+        bpf_ringbuf_output(&ringbuf, &msg, sizeof(msg), BPF_RB_FORCE_WAKEUP);
 
         if (bpf_map_lookup_elem(&ping_hash, &ip->daddr) || bpf_map_lookup_elem(&ping_hash, &ip->saddr)) {
-            bpf_printk("found element in hash %d", ip->daddr);
             return XDP_DROP;
         } 
-        bpf_printk("not found element in hash %d", ip->daddr);
-        bpf_printk("not found element in hash %d", ip->saddr);
+
     }
 
     return ret;

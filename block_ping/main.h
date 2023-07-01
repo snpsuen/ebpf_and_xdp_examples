@@ -1,5 +1,5 @@
 struct data_t {
-   int dst;
-   int dbg;
-   char something[10];
+   int proto;
+   int saddr;
+   int daddr;
 };
