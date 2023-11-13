@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     // attach xdp program to interface
     struct bpf_link *link = bpf_program__attach_xdp(skel->progs.detect_ping, ifindex);
     if (!link) {
-        fprintf(stderr, "bpf_program__attach_xdp\n");
+        fprintf(stderr, "Failed to call bpf_program__attach_xdp\n");
         return 1;
     }
 
